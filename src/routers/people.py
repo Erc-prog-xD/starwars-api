@@ -1,8 +1,8 @@
 # routers/people.py
 from fastapi import APIRouter, Depends, Query
-from schemas.types_class import Films, GenderCountResponse, PeopleRequest, PeopleResponse, StatisticHeightResponse, StatisticMassResponse, TypeGender
+from schemas.types_class import Films, GenderCountResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
 from services.swapi_services import fetch_data
-from utils.filters import apply_exact_filters, apply_smart_filters, filter_no_gender
+from utils.filters import apply_exact_filters, apply_smart_filters, fetch_by_url, filter_no_gender
 
 router = APIRouter(prefix="/people", tags=["people"])
 
@@ -118,16 +118,11 @@ def statistics_mass_people(gender: TypeGender = Query(None, description="type ge
     response_model=list[PeopleResponse],
     response_model_exclude_unset=True
 )
-def list_people_by_filters(
-    request: PeopleRequest = Depends()
-):
-    people_data = fetch_data("people")
-    films_data = fetch_data("films")
+def list_people_by_filters(request: PeopleRequest = Depends()):
 
-    films_map = {
-        film["url"]: film["title"]
-        for film in films_data
-    }
+    people_data = fetch_data("people")
+
+    # ---------------- FILTROS ----------------
 
     filters = {}
 
@@ -139,22 +134,72 @@ def list_people_by_filters(
         filters["hair_color"] = request.hair_color
     if request.eye_color:
         filters["eye_color"] = request.eye_color
+    if request.skin_color:
+        filters["skin_color"] = request.skin_color
     if request.birth_year:
         filters["birth_year"] = request.birth_year
 
-    if not filters:
-        result = people_data
-    else:
-        result = apply_smart_filters(people_data, filters)
+    result = (
+        people_data if not filters
+        else apply_smart_filters(people_data, filters)
+    )
 
-    response = []
+
+    response: list[PeopleResponse] = []
 
     for p in result:
-        films = [
-            Films(title=films_map[url])
-            for url in p.get("films", [])
-            if url in films_map
-        ]
+
+       homeworld = None
+       if p.get("homeworld"):
+        planet = fetch_by_url(p["homeworld"])
+        homeworld = planet["name"]
+
+        films = []
+        for url in p.get("films", []):
+            film = fetch_by_url(url)
+            films.append(
+                Films(
+                    title=film["title"],
+                    director=film["director"]
+                )
+            )
+
+        species = []
+        for url in p.get("species", []):
+            spec = fetch_by_url(url)
+            species.append(
+                Species(
+                    name=spec["name"],
+                    classification=spec["classification"]
+                )
+            )
+
+        vehicles = []
+        for url in p.get("vehicles", []):
+            vehicle = fetch_by_url(url)
+            vehicles.append(
+                Vehicles(
+                    name=vehicle["name"],
+                    model=vehicle["model"]
+                )
+            )
+
+        starships = []
+        for url in p.get("starships", []):
+            ship = fetch_by_url(url)
+
+            pilots = []
+            for pilot_url in ship.get("pilots", []):
+                pilot = fetch_by_url(pilot_url)
+                pilots.append(pilot["name"])
+
+            starships.append(
+                Starships(
+                    name=ship["name"],
+                    model=ship["model"],
+                    pilots=pilots
+                )
+            )
 
         response.append(
             PeopleResponse(
@@ -164,7 +209,11 @@ def list_people_by_filters(
                 eye_color=p["eye_color"],
                 skin_color=p["skin_color"],
                 birth_year=p["birth_year"],
-                films=films
+                homeworld= homeworld,
+                films=films,
+                species=species,
+                vehicles=vehicles,
+                starships=starships
             )
         )
 
