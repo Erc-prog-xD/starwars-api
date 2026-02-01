@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class Types(str, Enum):
     people = "people"
@@ -42,10 +42,13 @@ class PeopleRequest(BaseModel):
     eye_color: Optional[str] = None
     skin_color: Optional[str] = None
     birth_year: Optional[str] = None
-    homeworld: Optional[str] = None
+    page: int = Field(1, ge=1)
+    page_size: int = Field(10, ge=1, le=50)
 
 class PeopleResponse(BaseModel):
     name: str
+    height: int
+    mass: int
     hair_color: str
     skin_color: str
     eye_color: str
@@ -56,6 +59,12 @@ class PeopleResponse(BaseModel):
     species: list[Species]
     vehicles: list[Vehicles]
     starships: list[Starships]
+
+class PaginatedPeopleResponse(BaseModel):
+    page: int
+    page_size: int
+    total: int
+    results: list[PeopleResponse]
 
 
 class GenderCountResponse(BaseModel):

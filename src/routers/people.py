@@ -1,10 +1,19 @@
 # routers/people.py
 from fastapi import APIRouter, Depends, Query
-from schemas.types_class import Films, GenderCountResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
-from services.swapi_services import fetch_data
-from utils.filters import apply_exact_filters, apply_smart_filters, fetch_by_url, filter_no_gender
+from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
+from services.swapi_services import fetch_data, fetch_by_url, fetch_data_by_id
+from utils.filters import apply_exact_filters, apply_smart_filters, filter_no_gender
 
 router = APIRouter(prefix="/people", tags=["people"])
+
+
+
+@router.get("/by-id/{id}")
+def get_people_by_id(id: int):
+    people_data = fetch_data_by_id("people", id)
+    return people_data
+
+
 
 @router.get(
     "/gender_count",
@@ -115,14 +124,12 @@ def statistics_mass_people(gender: TypeGender = Query(None, description="type ge
 
 @router.get(
     "/list_people_by_filters",
-    response_model=list[PeopleResponse],
+    response_model=PaginatedPeopleResponse,
     response_model_exclude_unset=True
 )
 def list_people_by_filters(request: PeopleRequest = Depends()):
 
     people_data = fetch_data("people")
-
-    # ---------------- FILTROS ----------------
 
     filters = {}
 
@@ -144,55 +151,51 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
         else apply_smart_filters(people_data, filters)
     )
 
+    total = len(result)
+
+    start = (request.page - 1) * request.page_size
+    end = start + request.page_size
+
+    paginated_result = result[start:end]
 
     response: list[PeopleResponse] = []
 
-    for p in result:
+    for p in paginated_result:
 
-       homeworld = None
-       if p.get("homeworld"):
-        planet = fetch_by_url(p["homeworld"])
-        homeworld = planet["name"]
+        homeworld = None
+        if p.get("homeworld"):
+            planet = fetch_by_url(p["homeworld"])
+            homeworld = planet["name"]
 
-        films = []
-        for url in p.get("films", []):
-            film = fetch_by_url(url)
-            films.append(
-                Films(
-                    title=film["title"],
-                    director=film["director"]
-                )
+        films = [
+            Films(title=fetch_by_url(url)["title"],
+                  director=fetch_by_url(url)["director"])
+            for url in p.get("films", [])
+        ]
+
+        species = [
+            Species(
+                name=fetch_by_url(url)["name"],
+                classification=fetch_by_url(url)["classification"]
             )
+            for url in p.get("species", [])
+        ]
 
-        species = []
-        for url in p.get("species", []):
-            spec = fetch_by_url(url)
-            species.append(
-                Species(
-                    name=spec["name"],
-                    classification=spec["classification"]
-                )
+        vehicles = [
+            Vehicles(
+                name=fetch_by_url(url)["name"],
+                model=fetch_by_url(url)["model"]
             )
-
-        vehicles = []
-        for url in p.get("vehicles", []):
-            vehicle = fetch_by_url(url)
-            vehicles.append(
-                Vehicles(
-                    name=vehicle["name"],
-                    model=vehicle["model"]
-                )
-            )
+            for url in p.get("vehicles", [])
+        ]
 
         starships = []
         for url in p.get("starships", []):
             ship = fetch_by_url(url)
-
-            pilots = []
-            for pilot_url in ship.get("pilots", []):
-                pilot = fetch_by_url(pilot_url)
-                pilots.append(pilot["name"])
-
+            pilots = [
+                fetch_by_url(pilot)["name"]
+                for pilot in ship.get("pilots", [])
+            ]
             starships.append(
                 Starships(
                     name=ship["name"],
@@ -204,12 +207,14 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
         response.append(
             PeopleResponse(
                 name=p["name"],
+                height=p["height"],
+                mass=p["mass"],
                 gender=p["gender"],
                 hair_color=p["hair_color"],
                 eye_color=p["eye_color"],
                 skin_color=p["skin_color"],
                 birth_year=p["birth_year"],
-                homeworld= homeworld,
+                homeworld=homeworld,
                 films=films,
                 species=species,
                 vehicles=vehicles,
@@ -217,4 +222,10 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
             )
         )
 
-    return response
+    return PaginatedPeopleResponse(
+        page=request.page,
+        page_size=request.page_size,
+        total=total,
+        results=response
+    )
+

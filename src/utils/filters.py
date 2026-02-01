@@ -27,12 +27,17 @@ def filter_no_gender(data):
 EXACT_FIELDS = {"gender", "birth_year"}
 
 def apply_smart_filters(data, filters):
+    
     for key, value in filters.items():
         if value is None:
             continue
 
         value = str(value).lower()
 
+        if key == "gender" and value == "others":
+            data = filter_no_gender(data)
+            continue
+        
         if key in EXACT_FIELDS:
             data = [
                 item for item in data
@@ -46,11 +51,3 @@ def apply_smart_filters(data, filters):
 
     return data
 
-_url_cache: dict[str, dict] = {}
-
-def fetch_by_url(url: str) -> dict:
-    if url not in _url_cache:
-        response = requests.get(url)
-        response.raise_for_status()
-        _url_cache[url] = response.json()
-    return _url_cache[url]
