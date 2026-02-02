@@ -155,7 +155,6 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
 
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
-
     paginated_result = result[start:end]
 
     response: list[PeopleResponse] = []
@@ -167,28 +166,37 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
             planet = fetch_by_url(p["homeworld"])
             homeworld = planet["name"]
 
-        films = [
-            Films(title=fetch_by_url(url)["title"],
-                  director=fetch_by_url(url)["director"])
-            for url in p.get("films", [])
-        ]
-
-        species = [
-            Species(
-                name=fetch_by_url(url)["name"],
-                classification=fetch_by_url(url)["classification"]
+        films = []
+        for url in p.get("films", []):
+            film = fetch_by_url(url)
+            films.append(
+                Films(
+                    title=film["title"],
+                    director=film["director"]
+                )
             )
-            for url in p.get("species", [])
-        ]
 
-        vehicles = [
-            Vehicles(
-                name=fetch_by_url(url)["name"],
-                model=fetch_by_url(url)["model"]
+        species = []
+        for url in p.get("species", []):
+            specie = fetch_by_url(url)
+            species.append(
+                Species(
+                    name=specie["name"],
+                    classification=specie["classification"]
+                )
             )
-            for url in p.get("vehicles", [])
-        ]
 
+        vehicles = []
+        for url in p.get("vehicles", []):
+            vehicle = fetch_by_url(url)
+            vehicles.append(
+                Vehicles(
+                    name=vehicle["name"],
+                    model=vehicle["model"]
+                )
+            )
+
+        
         starships = []
         for url in p.get("starships", []):
             ship = fetch_by_url(url)
@@ -228,4 +236,5 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
         total=total,
         results=response
     )
+
 

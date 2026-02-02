@@ -3,6 +3,11 @@ from services.swapi_services import fetch_data
 from utils.filters import apply_filters
 from schemas.types_class import Types
 from routers.people import router as people_router
+from routers.planets import router as planets_router
+from routers.films import router as films_router
+from routers.starships import router as starships_router
+from routers.species import router as species_router
+from routers.vehicles import router as vehicles_router
 
 
 app = FastAPI(
@@ -31,3 +36,8 @@ def get_data(
     return {"results": result}
 
 app.include_router(people_router)
+app.include_router(planets_router)
+app.include_router(films_router)
+app.include_router(starships_router)
+app.include_router(species_router)
+app.include_router(vehicles_router)
