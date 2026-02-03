@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 
 from schemas.types_class import Films, PaginatedVehiclesResponse, People, VehiclesRequest, VehiclesResponse
-from services.swapi_services import fetch_data, fetch_by_url, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_by_url, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -43,6 +43,17 @@ def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
         else apply_smart_filters(vehicles_data, filters)
     )
 
+    if request.order_by == "url":
+        result.sort(
+            key=lambda x: extract_id_from_url(x.get("url")),
+            reverse=request.order_dir == "desc"
+        )
+    else:
+        result.sort(
+            key=lambda x: (x.get(request.order_by) or "").lower(),
+            reverse=request.order_dir == "desc"
+        )
+
     total = len(result)
 
     start = (request.page - 1) * request.page_size
@@ -80,7 +91,8 @@ def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
                 consumables=v["consumables"],
                 vehicle_class=v["vehicle_class"],
                 pilots=pilots,
-                films=films
+                films=films,
+                url_id=v["url"]
             )
         )
 

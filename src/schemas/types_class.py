@@ -53,6 +53,10 @@ class PeopleRequest(BaseModel):
     eye_color: Optional[str] = None
     skin_color: Optional[str] = None
     birth_year: Optional[str] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
+
     page: int = Field(1, ge=1)
     page_size: int = Field(10, ge=1, le=50)
 
@@ -70,6 +74,7 @@ class PeopleResponse(BaseModel):
     species: list[Species]
     vehicles: list[Vehicles]
     starships: list[Starships]
+    url_id: str
 
 class PaginatedPeopleResponse(BaseModel):
     page: int
@@ -116,12 +121,17 @@ class PlanetResponse(BaseModel):
     surface_water: str
     residents: list[People]
     films: list[Films]
+    url_id: str
 
 class PlanetRequest(BaseModel):
     name: Optional[str] = None
     climate: Optional[str] = None
     terrain: Optional[str] = None
     min_population: Optional[int] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
+
     page: int = 1
     page_size: int = 10
 
@@ -166,6 +176,7 @@ class FilmsResponse(BaseModel):
     starships: list[Starships]
     vehicles: list[Vehicles]
     species: list[Species]
+    url_id: str
 
 class FilmWithCounts(BaseModel):
     title: str
@@ -187,6 +198,9 @@ class FilmsRequest(BaseModel):
     director: Optional[str] = None
     producer: Optional[str] = None
     release_date: Optional[date] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
 
     page: int = 1
     page_size: int = 10
@@ -219,12 +233,16 @@ class StarshipsResponse(BaseModel):
     starship_class: str
     pilots: list[People]
     films: list[Films]
+    url_id: str
 
 class StarshipsRequest(BaseModel):
     name: Optional[str] = None
     model: Optional[str] = None
     manufacturer: Optional[str] = None
     starship_class: Optional[str] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
 
     page: int = 1
     page_size: int = 10
@@ -252,12 +270,16 @@ class SpeciesResponse(BaseModel):
     language: str
     people: list[People]
     films: list[Films]
+    url_id: str
 
 class SpeciesRequest(BaseModel):
     name: Optional[str] = None
     classification: Optional[str] = None
     designation: Optional[str] = None
     language: Optional[str] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
 
     page: int = 1
     page_size: int = 10
@@ -286,6 +308,7 @@ class VehiclesResponse(BaseModel):
     vehicle_class: str
     pilots: list[People]
     films: list[Films]
+    url_id: str
 
 
 class VehiclesRequest(BaseModel):
@@ -293,6 +316,9 @@ class VehiclesRequest(BaseModel):
     model: Optional[str] = None
     manufacturer: Optional[str] = None
     vehicle_class: Optional[str] = None
+
+    order_by: Optional[str] = "url"
+    order_dir: Optional[str] = "asc"
 
     page: int = 1
     page_size: int = 10

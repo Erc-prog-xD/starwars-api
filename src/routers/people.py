@@ -1,7 +1,7 @@
 # routers/people.py
 from fastapi import APIRouter, Depends, Query
 from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
-from services.swapi_services import fetch_data, fetch_by_url, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_by_url, fetch_data_by_id
 from utils.filters import apply_exact_filters, apply_smart_filters, filter_no_gender
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -151,6 +151,17 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
         else apply_smart_filters(people_data, filters)
     )
 
+    if request.order_by == "url":
+        result.sort(
+            key=lambda x: extract_id_from_url(x.get("url")),
+            reverse=request.order_dir == "desc"
+        )
+    else:
+        result.sort(
+            key=lambda x: (x.get(request.order_by) or "").lower(),
+            reverse=request.order_dir == "desc"
+        )
+
     total = len(result)
 
     start = (request.page - 1) * request.page_size
@@ -226,7 +237,8 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
                 films=films,
                 species=species,
                 vehicles=vehicles,
-                starships=starships
+                starships=starships,
+                url_id=p["url"]
             )
         )
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from schemas.types_class import Films, PaginatedSpeciesResponse, People, SpeciesRequest, SpeciesResponse
-from services.swapi_services import fetch_by_url, fetch_data, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -43,6 +43,18 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
         species_data if not filters
         else apply_smart_filters(species_data, filters)
     )
+    
+    if request.order_by == "url":
+        result.sort(
+            key=lambda x: extract_id_from_url(x.get("url")),
+            reverse=request.order_dir == "desc"
+        )
+    else:
+        result.sort(
+            key=lambda x: (x.get(request.order_by) or "").lower(),
+            reverse=request.order_dir == "desc"
+        )
+
 
     total = len(result)
 
@@ -80,7 +92,8 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
                 homeworld=s["homeworld"],
                 language=s["language"],
                 people=people,
-                films=films
+                films=films,
+                url_id=s["url"]
             )
         )
 

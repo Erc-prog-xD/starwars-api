@@ -22,3 +22,8 @@ def fetch_by_url(url: str) -> dict:
         response.raise_for_status()
         _URL_CACHE[url] = response.json()
     return _URL_CACHE[url]
+
+def extract_id_from_url(url: str | None) -> int:
+    if not url:
+        return 0
+    return int(url.rstrip("/").split("/")[-1])

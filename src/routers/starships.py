@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from schemas.types_class import Films, PaginatedStarshipsResponse, People, StarshipsRequest, StarshipsResponse
-from services.swapi_services import fetch_by_url, fetch_data, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -40,7 +40,18 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
         starships_data if not filters
         else apply_smart_filters(starships_data, filters)
     )
+    print(request.order_dir)
 
+    if request.order_by == "url":
+        result.sort(
+            key=lambda x: extract_id_from_url(x.get("url")),
+            reverse=request.order_dir == "desc"
+        )
+    else:
+        result.sort(
+            key=lambda x: (x.get(request.order_by) or "").lower(),
+            reverse=request.order_dir == "desc"
+        )
     total = len(result)
 
     start = (request.page - 1) * request.page_size
@@ -82,7 +93,8 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
                 MGLT=s["MGLT"],
                 starship_class=s["starship_class"],
                 pilots=pilots,
-                films=films
+                films=films,
+                url_id=s["url"]
             )
         )
 
