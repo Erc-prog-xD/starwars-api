@@ -194,7 +194,12 @@ class FilmsRequest(BaseModel):
 class FilmsWithCountsResponse(BaseModel):
     results: list[FilmWithCounts]
 
+class moviesCharacterAppeared(BaseModel):
+    name: str
+    movie: list[Films]
 
+class moviesCharacterAppearedResponse(BaseModel):
+    results: list[moviesCharacterAppeared]
 
 #- STARSHIPS
 
