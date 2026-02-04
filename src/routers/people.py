@@ -1,6 +1,6 @@
 # routers/people.py
 from fastapi import APIRouter, Depends, Query
-from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles, moviesCharacterAppeared, moviesCharacterAppearedResponse
+from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
 from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_exact_filters, apply_smart_filters, filter_no_gender
 
@@ -261,46 +261,3 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
     )
 
 
-
-@router.get(
-    "/movies_character_appeared",
-    response_model=moviesCharacterAppearedResponse
-)
-def movies_character_appeared(
-    name: str | None = Query(None, description="Nome do personagem")
-):
-    people_data = fetch_data("people")
-    films_data = fetch_data("films")
-
-    filters = {}
-    if name:
-        filters["name"] = name
-    
-    result = (
-        people_data if not filters
-        else apply_smart_filters(people_data, filters)
-    )
-
-    response = []
-    for person in result:
-        person_url = person["url"]
-
-        movies = [
-            Films(
-                title=f["title"],
-                director=f["director"]
-            )
-            for f in films_data
-            if person_url in f.get("characters", [])
-        ]
-
-        response.append(
-            moviesCharacterAppeared(
-                name=person["name"],
-                movie=movies
-            )
-        )
-
-    return moviesCharacterAppearedResponse(
-        results=response
-    )

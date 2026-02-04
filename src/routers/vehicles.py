@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 
 from schemas.types_class import Films, PaginatedVehiclesResponse, People, VehiclesRequest, VehiclesResponse
 from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
-from utils.filters import apply_smart_filters
+from utils.filters import apply_smart_filters, safe_int
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
@@ -17,7 +17,7 @@ def get_vehicles_by_id(id: int):
 
 
 @router.get(
-    "/list_by_filters",
+    "/list_vehicles_by_filters",
     response_model=PaginatedVehiclesResponse
 )
 def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
@@ -105,3 +105,134 @@ def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
         total=total,
         results=response
     )
+
+
+@router.get("/stats/overview")
+def vehicles_stats_overview():
+
+    vehicles = fetch_data("vehicles")
+
+    classes = {}
+    manufacturers = {}
+
+    for v in vehicles:
+        cls = v.get("vehicle_class")
+        if cls:
+            classes[cls] = classes.get(cls, 0) + 1
+
+        man = v.get("manufacturer")
+        if man:
+            manufacturers[man] = manufacturers.get(man, 0) + 1
+
+    return {
+        "total_vehicles": len(vehicles),
+        "vehicle_classes": classes,
+        "manufacturers": manufacturers
+    }
+
+
+@router.get("/stats/cost")
+def vehicles_cost_stats():
+
+    vehicles = fetch_data("vehicles")
+
+    costs = []
+    most_expensive = None
+    max_cost = 0
+
+    for v in vehicles:
+        cost = safe_int(v.get("cost_in_credits", ""))
+        if cost is not None:
+            costs.append(cost)
+
+            if cost > max_cost:
+                max_cost = cost
+                most_expensive = {
+                    "name": v["name"],
+                    "cost_in_credits": cost
+                }
+
+    avg_cost = sum(costs) / len(costs) if costs else 0
+
+    return {
+        "average_cost": round(avg_cost, 2),
+        "most_expensive_vehicle": most_expensive
+    }
+
+
+@router.get("/stats/cargo")
+def vehicles_cargo_stats():
+
+    vehicles = fetch_data("vehicles")
+
+    cargos = []
+    highest_cargo = None
+    max_cargo = 0
+
+    for v in vehicles:
+        cargo = safe_int(v.get("cargo_capacity", ""))
+        if cargo is not None:
+            cargos.append(cargo)
+
+            if cargo > max_cargo:
+                max_cargo = cargo
+                highest_cargo = {
+                    "name": v["name"],
+                    "cargo_capacity": cargo
+                }
+
+    avg_cargo = sum(cargos) / len(cargos) if cargos else 0
+
+    return {
+        "average_cargo_capacity": round(avg_cargo, 2),
+        "highest_cargo_vehicle": highest_cargo
+    }
+
+
+@router.get("/stats/speed")
+def vehicles_speed_stats():
+
+    vehicles = fetch_data("vehicles")
+
+    speeds = []
+    fastest = None
+    max_speed = 0
+
+    for v in vehicles:
+        speed = safe_int(v.get("max_atmosphering_speed", ""))
+        if speed is not None:
+            speeds.append(speed)
+
+            if speed > max_speed:
+                max_speed = speed
+                fastest = {
+                    "name": v["name"],
+                    "max_atmosphering_speed": speed
+                }
+
+    avg_speed = sum(speeds) / len(speeds) if speeds else 0
+
+    return {
+        "average_speed": round(avg_speed, 2),
+        "fastest_vehicle": fastest
+    }
+
+
+@router.get("/stats/most_appeared_in_movies")
+def most_appeared_in_movies():
+
+    vehicles = fetch_data("vehicles")
+
+    result = []
+
+    for v in vehicles:
+        result.append({
+            "name": v["name"],
+            "appearances": len(v.get("films", []))
+        })
+
+    result.sort(key=lambda x: x["appearances"], reverse=True)
+
+    return {
+        "results": result
+    }

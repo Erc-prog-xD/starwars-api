@@ -17,7 +17,7 @@ def get_films_by_id(id: int):
 
 
 @router.get(
-    "/list_by_filters",
+    "/list_films_by_filters",
     response_model=PaginatedFilmsResponse
 )
 def list_films_by_filters(request: FilmsRequest = Depends()):
@@ -29,7 +29,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
     starships_data = fetch_data("starships")
     planets_data = fetch_data("planets")
 
-    # 🔹 mapas por URL (lookup O(1))
     people_map = {p["url"]: p for p in people_data}
     species_map = {s["url"]: s for s in species_data}
     vehicles_map = {v["url"]: v for v in vehicles_data}
@@ -54,6 +53,15 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
         else apply_smart_filters(films_data, filters)
     )
 
+    if request.name_people:
+        filtered = []
+        for f in result:
+            for url in f.get("characters", []):
+                if url in people_map and request.name_people.lower() in people_map[url]["name"].lower():
+                    filtered.append(f)
+                    break  
+        result = filtered
+
     if request.order_by == "url":
         result.sort(
             key=lambda x: extract_id_from_url(x.get("url")),
@@ -74,14 +82,12 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
 
     for f in paginated:
 
-        # 👤 Characters
         characters = [
             People(name=people_map[url]["name"])
             for url in f.get("characters", [])
             if url in people_map
         ]
 
-        # 🌍 Planets
         planets = [
             Planets(
                 name=planets_map[url]["name"],
@@ -91,7 +97,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
             if url in planets_map
         ]
 
-        # 🚀 Starships
         starships = []
         for url in f.get("starships", []):
             if url not in starships_map:
@@ -112,7 +117,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
                 )
             )
 
-        # 🚗 Vehicles
         vehicles = [
             Vehicles(
                 name=vehicles_map[url]["name"],
@@ -122,7 +126,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
             if url in vehicles_map
         ]
 
-        # 🧬 Species
         species = [
             Species(
                 name=species_map[url]["name"],
@@ -181,3 +184,74 @@ def list_films_with_counts():
 
 
 
+@router.get("/stats/overview")
+def films_stats_overview():
+
+    films = fetch_data("films")
+
+    return {
+        "total_films": len(films),
+        "episodes": sorted([f["episode_id"] for f in films]),
+        "titles": [f["title"] for f in films]
+    }
+
+@router.get("/stats/movies_most_species")
+def movies_most_species():
+
+    films = fetch_data("films")
+
+    result = []
+
+    for f in films:
+        result.append({
+            "title": f["title"],
+            "episode_id": f["episode_id"],
+            "total_species": len(f.get("species", []))
+        })
+
+    result.sort(key=lambda x: x["total_species"], reverse=True)
+
+    return {
+        "results": result
+    }
+
+@router.get("/stats/starships_useds_in_movies")
+def starships_useds_in_movies():
+
+    films = fetch_data("films")
+
+    result = []
+
+    for f in films:
+        result.append({
+            "title": f["title"],
+            "episode_id": f["episode_id"],
+            "total_starships": len(f.get("starships", []))
+        })
+
+    result.sort(key=lambda x: x["total_starships"], reverse=True)
+
+    return {
+        "results": result
+    }
+
+@router.get("/stats/timeline")
+def films_timeline_stats():
+
+    films = fetch_data("films")
+
+    result = sorted(
+        films,
+        key=lambda x: x["release_date"]
+    )
+
+    return {
+        "timeline": [
+            {
+                "title": f["title"],
+                "episode_id": f["episode_id"],
+                "release_date": f["release_date"]
+            }
+            for f in result
+        ]
+    }

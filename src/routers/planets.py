@@ -14,7 +14,7 @@ def get_planets_by_id(id: int):
     return people_data
 
 @router.get(
-    "/list_by_filters",
+    "/list_planets_by_filters",
     response_model=PaginatedPlanetsResponse
 )
 def list_planets_by_filters(request: PlanetRequest = Depends()):

@@ -15,7 +15,7 @@ def get_starships_by_id(id: int):
     return starships_data
 
 @router.get(
-    "/list_by_filters",
+    "/list_starships_by_filters",
     response_model=PaginatedStarshipsResponse
 )
 def list_starships_by_filters(request: StarshipsRequest = Depends()):
@@ -105,3 +105,48 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
         total=total,
         results=response
     )
+
+@router.get("/stats/overview")
+def starships_stats_overview():
+
+    starships = fetch_data("starships")
+
+    total = len(starships)
+
+    class_count = {}
+    for s in starships:
+        cls = s.get("starship_class")
+        if cls:
+            class_count[cls] = class_count.get(cls, 0) + 1
+
+    most_common_class = max(class_count, key=class_count.get)
+    
+    return {
+        "total_starships": total,
+        "most_common_class": most_common_class,
+        "class_distribution": class_count
+    }
+
+
+@router.get("/stats/most_appared_in_movies")
+def starships_most_appeared():
+
+    starships = fetch_data("starships")
+
+    result = []
+
+    for s in starships:
+        appearances = len(s.get("films", []))
+        result.append({
+            "name": s["name"],
+            "appearances": appearances
+        })
+
+    result.sort(key=lambda x: x["appearances"], reverse=True)
+
+    return {
+        "results": result
+    }
+
+
+

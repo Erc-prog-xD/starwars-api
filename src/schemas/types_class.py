@@ -199,6 +199,9 @@ class FilmsRequest(BaseModel):
     producer: Optional[str] = None
     release_date: Optional[date] = None
 
+    name_people: Optional[str] = None  
+
+
     order_by: Optional[str] = "url"
     order_dir: Optional[str] = "asc"
 
@@ -207,13 +210,6 @@ class FilmsRequest(BaseModel):
 
 class FilmsWithCountsResponse(BaseModel):
     results: list[FilmWithCounts]
-
-class moviesCharacterAppeared(BaseModel):
-    name: str
-    movie: list[Films]
-
-class moviesCharacterAppearedResponse(BaseModel):
-    results: list[moviesCharacterAppeared]
 
 #- STARSHIPS
 

@@ -51,3 +51,9 @@ def apply_smart_filters(data, filters):
 
     return data
 
+
+def safe_int(value):
+    try:
+        return int(value.replace(",", ""))
+    except Exception:
+        return None
