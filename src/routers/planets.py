@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from schemas.types_class import Films, PaginatedPlanetsResponse, People, PlanetRequest, PlanetResponse, PopulationStatisticsResponse, TopPlanetsByPopulation, TopPlanetsByResidents
-from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -20,15 +20,18 @@ def get_planets_by_id(id: int):
 def list_planets_by_filters(request: PlanetRequest = Depends()):
 
     planets_data = fetch_data("planets")
+    people_data = fetch_data("people")
+    films_data = fetch_data("films")
+
+    people_map = {p["url"]: p for p in people_data}
+    films_map = {f["url"]: f for f in films_data}
 
     filters = {}
 
     if request.name:
         filters["name"] = request.name
-
     if request.climate:
         filters["climate"] = request.climate
-
     if request.terrain:
         filters["terrain"] = request.terrain
 
@@ -54,8 +57,8 @@ def list_planets_by_filters(request: PlanetRequest = Depends()):
             key=lambda x: (x.get(request.order_by) or "").lower(),
             reverse=request.order_dir == "desc"
         )
-    total = len(result)
 
+    total = len(result)
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated = result[start:end]
@@ -64,22 +67,20 @@ def list_planets_by_filters(request: PlanetRequest = Depends()):
 
     for p in paginated:
 
-        residents = []
-        for url in p.get("residents", []):
-            resident = fetch_by_url(url)
-            residents.append(
-                People(name=resident["name"])
-            )
+        residents = [
+            People(name=people_map[url]["name"])
+            for url in p.get("residents", [])
+            if url in people_map
+        ]
 
-        films = []
-        for url in p.get("films", []):
-            film = fetch_by_url(url)
-            films.append(
-                Films(
-                    title=film["title"],
-                    director=film["director"]
-                )
+        films = [
+            Films(
+                title=films_map[url]["title"],
+                director=films_map[url]["director"]
             )
+            for url in p.get("films", [])
+            if url in films_map
+        ]
 
         response.append(
             PlanetResponse(

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 
 from schemas.types_class import Films, PaginatedVehiclesResponse, People, VehiclesRequest, VehiclesResponse
-from services.swapi_services import extract_id_from_url, fetch_data, fetch_by_url, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -23,18 +23,20 @@ def get_vehicles_by_id(id: int):
 def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
 
     vehicles_data = fetch_data("vehicles")
+    people_data = fetch_data("people")
+    films_data = fetch_data("films")
+
+    people_map = {p["url"]: p for p in people_data}
+    films_map = {f["url"]: f for f in films_data}
 
     filters = {}
 
     if request.name:
         filters["name"] = request.name
-
     if request.model:
         filters["model"] = request.model
-
     if request.manufacturer:
         filters["manufacturer"] = request.manufacturer
-
     if request.vehicle_class:
         filters["vehicle_class"] = request.vehicle_class
 
@@ -55,26 +57,27 @@ def list_vehicles_by_filters(request: VehiclesRequest = Depends()):
         )
 
     total = len(result)
-
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated = result[start:end]
 
-    response = []
+    response: list[VehiclesResponse] = []
 
     for v in paginated:
 
         pilots = [
-            People(name=fetch_by_url(url)["name"])
+            People(name=people_map[url]["name"])
             for url in v.get("pilots", [])
+            if url in people_map
         ]
 
         films = [
             Films(
-                title=fetch_by_url(url)["title"],
-                director=fetch_by_url(url)["director"]
+                title=films_map[url]["title"],
+                director=films_map[url]["director"]
             )
             for url in v.get("films", [])
+            if url in films_map
         ]
 
         response.append(

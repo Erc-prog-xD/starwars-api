@@ -1,7 +1,7 @@
 # routers/people.py
 from fastapi import APIRouter, Depends, Query
-from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles
-from services.swapi_services import extract_id_from_url, fetch_data, fetch_by_url, fetch_data_by_id
+from schemas.types_class import Films, GenderCountResponse, PaginatedPeopleResponse, PeopleRequest, PeopleResponse, Species, Starships, StatisticHeightResponse, StatisticMassResponse, TypeGender, Vehicles, moviesCharacterAppeared, moviesCharacterAppearedResponse
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_exact_filters, apply_smart_filters, filter_no_gender
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -130,6 +130,18 @@ def statistics_mass_people(gender: TypeGender = Query(None, description="type ge
 def list_people_by_filters(request: PeopleRequest = Depends()):
 
     people_data = fetch_data("people")
+    films_data = fetch_data("films")
+    species_data = fetch_data("species")
+    vehicles_data = fetch_data("vehicles")
+    starships_data = fetch_data("starships")
+    planets_data = fetch_data("planets")
+
+    films_map = {f["url"]: f for f in films_data}
+    species_map = {s["url"]: s for s in species_data}
+    vehicles_map = {v["url"]: v for v in vehicles_data}
+    starships_map = {s["url"]: s for s in starships_data}
+    planets_map = {p["url"]: p for p in planets_data}
+    people_map = {p["url"]: p for p in people_data}
 
     filters = {}
 
@@ -163,7 +175,6 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
         )
 
     total = len(result)
-
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated_result = result[start:end]
@@ -173,48 +184,48 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
     for p in paginated_result:
 
         homeworld = None
-        if p.get("homeworld"):
-            planet = fetch_by_url(p["homeworld"])
-            homeworld = planet["name"]
+        if p.get("homeworld") in planets_map:
+            homeworld = planets_map[p["homeworld"]]["name"]
 
-        films = []
-        for url in p.get("films", []):
-            film = fetch_by_url(url)
-            films.append(
-                Films(
-                    title=film["title"],
-                    director=film["director"]
-                )
+        films = [
+            Films(
+                title=films_map[url]["title"],
+                director=films_map[url]["director"]
             )
+            for url in p.get("films", [])
+            if url in films_map
+        ]
 
-        species = []
-        for url in p.get("species", []):
-            specie = fetch_by_url(url)
-            species.append(
-                Species(
-                    name=specie["name"],
-                    classification=specie["classification"]
-                )
+        species = [
+            Species(
+                name=species_map[url]["name"],
+                classification=species_map[url]["classification"]
             )
+            for url in p.get("species", [])
+            if url in species_map
+        ]
 
-        vehicles = []
-        for url in p.get("vehicles", []):
-            vehicle = fetch_by_url(url)
-            vehicles.append(
-                Vehicles(
-                    name=vehicle["name"],
-                    model=vehicle["model"]
-                )
+        vehicles = [
+            Vehicles(
+                name=vehicles_map[url]["name"],
+                model=vehicles_map[url]["model"]
             )
+            for url in p.get("vehicles", [])
+            if url in vehicles_map
+        ]
 
-        
         starships = []
         for url in p.get("starships", []):
-            ship = fetch_by_url(url)
+            if url not in starships_map:
+                continue
+
+            ship = starships_map[url]
             pilots = [
-                fetch_by_url(pilot)["name"]
+                people_map[pilot]["name"]
                 for pilot in ship.get("pilots", [])
+                if pilot in people_map
             ]
+
             starships.append(
                 Starships(
                     name=ship["name"],
@@ -250,3 +261,46 @@ def list_people_by_filters(request: PeopleRequest = Depends()):
     )
 
 
+
+@router.get(
+    "/movies_character_appeared",
+    response_model=moviesCharacterAppearedResponse
+)
+def movies_character_appeared(
+    name: str | None = Query(None, description="Nome do personagem")
+):
+    people_data = fetch_data("people")
+    films_data = fetch_data("films")
+
+    filters = {}
+    if name:
+        filters["name"] = name
+    
+    result = (
+        people_data if not filters
+        else apply_smart_filters(people_data, filters)
+    )
+
+    response = []
+    for person in result:
+        person_url = person["url"]
+
+        movies = [
+            Films(
+                title=f["title"],
+                director=f["director"]
+            )
+            for f in films_data
+            if person_url in f.get("characters", [])
+        ]
+
+        response.append(
+            moviesCharacterAppeared(
+                name=person["name"],
+                movie=movies
+            )
+        )
+
+    return moviesCharacterAppearedResponse(
+        results=response
+    )

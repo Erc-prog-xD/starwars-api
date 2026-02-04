@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from schemas.types_class import Films, PaginatedSpeciesResponse, People, SpeciesRequest, SpeciesResponse
-from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -24,18 +24,20 @@ def get_species_by_id(id: int):
 def list_species_by_filters(request: SpeciesRequest = Depends()):
 
     species_data = fetch_data("species")
+    people_data = fetch_data("people")
+    films_data = fetch_data("films")
+
+    people_map = {p["url"]: p for p in people_data}
+    films_map = {f["url"]: f for f in films_data}
 
     filters = {}
 
     if request.name:
         filters["name"] = request.name
-
     if request.classification:
         filters["classification"] = request.classification
-
     if request.designation:
         filters["designation"] = request.designation
-
     if request.language:
         filters["language"] = request.language
 
@@ -43,7 +45,8 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
         species_data if not filters
         else apply_smart_filters(species_data, filters)
     )
-    
+
+    # 🔃 ordenação
     if request.order_by == "url":
         result.sort(
             key=lambda x: extract_id_from_url(x.get("url")),
@@ -55,9 +58,7 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
             reverse=request.order_dir == "desc"
         )
 
-
     total = len(result)
-
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated = result[start:end]
@@ -67,16 +68,18 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
     for s in paginated:
 
         people = [
-            People(name=fetch_by_url(url)["name"])
+            People(name=people_map[url]["name"])
             for url in s.get("people", [])
+            if url in people_map
         ]
 
         films = [
             Films(
-                title=fetch_by_url(url)["title"],
-                director=fetch_by_url(url)["director"]
+                title=films_map[url]["title"],
+                director=films_map[url]["director"]
             )
             for url in s.get("films", [])
+            if url in films_map
         ]
 
         response.append(
@@ -89,7 +92,7 @@ def list_species_by_filters(request: SpeciesRequest = Depends()):
                 hair_colors=s["hair_colors"],
                 eye_colors=s["eye_colors"],
                 average_lifespan=s["average_lifespan"],
-                homeworld=s["homeworld"],
+                homeworld=s["homeworld"],  # mantém URL ou trata depois se quiser
                 language=s["language"],
                 people=people,
                 films=films,

@@ -1,5 +1,6 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query
-from services.swapi_services import fetch_data
+from services.swapi_services import fetch_data, load_swapi_cache
 from utils.filters import apply_filters
 from schemas.types_class import Types
 from routers.people import router as people_router
@@ -10,10 +11,19 @@ from routers.species import router as species_router
 from routers.vehicles import router as vehicles_router
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🔹 Carregando cache da SWAPI...")
+    load_swapi_cache()
+    print("✅ Cache carregado com sucesso")
+    yield
+
+
 app = FastAPI(
     title="Star Wars API",
     description="API para consulta de dados da saga Star Wars usando SWAPI",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 
@@ -34,53 +44,6 @@ def get_data(
 
     result = apply_filters(data, filters)
     return {"results": result}
-
-from fastapi import FastAPI
-from services.swapi_services import fetch_data, fetch_by_url
-import logging
-
-app = FastAPI(
-    title="Star Wars API",
-    version="1.0.0"
-)
-
-logging.basicConfig(level=logging.INFO)
-
-
-# @app.on_event("startup")
-# def warm_up_cache():
-#     resources = [
-#         "people",
-#         "films",
-#         "planets",
-#         "species",
-#         "vehicles",
-#         "starships"
-#     ]
-
-#     logging.info("🔄 Iniciando warm-up do cache SWAPI...")
-
-#     for resource in resources:
-#         data = fetch_data(resource)
-
-#         for item in data:
-#             fetch_by_url(item["url"])
-
-#             for field in [
-#                 "films",
-#                 "characters",
-#                 "people",
-#                 "residents",
-#                 "species",
-#                 "vehicles",
-#                 "starships",
-#                 "pilots"
-#             ]:
-#                 for url in item.get(field, []):
-#                     fetch_by_url(url)
-
-#     logging.info("✅ Cache aquecido com sucesso!")
-
 
 app.include_router(people_router)
 app.include_router(planets_router)

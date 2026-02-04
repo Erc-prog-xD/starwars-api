@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
-from schemas.types_class import FilmWithCounts, Films, FilmsResponse, FilmsRequest, FilmsWithCountsResponse, PaginatedFilmsResponse, People, Planets, Species, Starships, Vehicles, moviesCharacterAppeared, moviesCharacterAppearedResponse
-from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
+from schemas.types_class import FilmWithCounts, FilmsResponse, FilmsRequest, FilmsWithCountsResponse, PaginatedFilmsResponse, People, Planets, Species, Starships, Vehicles
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -23,21 +23,29 @@ def get_films_by_id(id: int):
 def list_films_by_filters(request: FilmsRequest = Depends()):
 
     films_data = fetch_data("films")
+    people_data = fetch_data("people")
+    species_data = fetch_data("species")
+    vehicles_data = fetch_data("vehicles")
+    starships_data = fetch_data("starships")
+    planets_data = fetch_data("planets")
+
+    # 🔹 mapas por URL (lookup O(1))
+    people_map = {p["url"]: p for p in people_data}
+    species_map = {s["url"]: s for s in species_data}
+    vehicles_map = {v["url"]: v for v in vehicles_data}
+    starships_map = {s["url"]: s for s in starships_data}
+    planets_map = {p["url"]: p for p in planets_data}
 
     filters = {}
 
     if request.title:
         filters["title"] = request.title
-
     if request.director:
         filters["director"] = request.director
-
     if request.producer:
         filters["producer"] = request.producer
-
     if request.episode_id:
         filters["episode_id"] = request.episode_id
-
     if request.release_date:
         filters["release_date"] = request.release_date.isoformat()
 
@@ -58,7 +66,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
         )
 
     total = len(result)
-
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated = result[start:end]
@@ -67,31 +74,36 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
 
     for f in paginated:
 
-        # Characters
+        # 👤 Characters
         characters = [
-            People(name=fetch_by_url(url)["name"])
+            People(name=people_map[url]["name"])
             for url in f.get("characters", [])
+            if url in people_map
         ]
 
-        # Planets
-        planets = []
-        for url in f.get("planets", []):
-            planet = fetch_by_url(url)
-            planets.append(
-                Planets(
-                    name=planet["name"],
-                    population=planet["population"]
-                )
+        # 🌍 Planets
+        planets = [
+            Planets(
+                name=planets_map[url]["name"],
+                population=planets_map[url]["population"]
             )
+            for url in f.get("planets", [])
+            if url in planets_map
+        ]
 
-        # Starships
+        # 🚀 Starships
         starships = []
         for url in f.get("starships", []):
-            ship = fetch_by_url(url)
+            if url not in starships_map:
+                continue
+
+            ship = starships_map[url]
             pilots = [
-                fetch_by_url(pilot)["name"]
+                people_map[pilot]["name"]
                 for pilot in ship.get("pilots", [])
+                if pilot in people_map
             ]
+
             starships.append(
                 Starships(
                     name=ship["name"],
@@ -100,27 +112,25 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
                 )
             )
 
-        # Vehicles
-        vehicles = []
-        for url in f.get("vehicles", []):
-            vehicle = fetch_by_url(url)
-            vehicles.append(
-                Vehicles(
-                    name=vehicle["name"],
-                    model=vehicle["model"]
-                )
+        # 🚗 Vehicles
+        vehicles = [
+            Vehicles(
+                name=vehicles_map[url]["name"],
+                model=vehicles_map[url]["model"]
             )
+            for url in f.get("vehicles", [])
+            if url in vehicles_map
+        ]
 
-        # Species
-        species = []
-        for url in f.get("species", []):
-            specie = fetch_by_url(url)
-            species.append(
-                Species(
-                    name=specie["name"],
-                    classification=specie["classification"]
-                )
+        # 🧬 Species
+        species = [
+            Species(
+                name=species_map[url]["name"],
+                classification=species_map[url]["classification"]
             )
+            for url in f.get("species", [])
+            if url in species_map
+        ]
 
         response.append(
             FilmsResponse(
@@ -147,7 +157,6 @@ def list_films_by_filters(request: FilmsRequest = Depends()):
     )
 
 
-
 @router.get(
     "/list_with_counts",
     response_model=FilmsWithCountsResponse
@@ -171,45 +180,4 @@ def list_films_with_counts():
     return FilmsWithCountsResponse(results=results)
 
 
-@router.get(
-    "/movies_character_appeared",
-    response_model=moviesCharacterAppearedResponse
-)
-def movies_character_appeared(
-    name: str | None = Query(None, description="Nome do personagem")
-):
-    people_data = fetch_data("people")
-    films_data = fetch_data("films")
 
-    filters = {}
-    if name:
-        filters["name"] = name
-    
-    result = (
-        people_data if not filters
-        else apply_smart_filters(people_data, filters)
-    )
-
-    response = []
-    for person in result:
-        person_url = person["url"]
-
-        movies = [
-            Films(
-                title=f["title"],
-                director=f["director"]
-            )
-            for f in films_data
-            if person_url in f.get("characters", [])
-        ]
-
-        response.append(
-            moviesCharacterAppeared(
-                name=person["name"],
-                movie=movies
-            )
-        )
-
-    return moviesCharacterAppearedResponse(
-        results=response
-    )

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from schemas.types_class import Films, PaginatedStarshipsResponse, People, StarshipsRequest, StarshipsResponse
-from services.swapi_services import extract_id_from_url, fetch_by_url, fetch_data, fetch_data_by_id
+from services.swapi_services import extract_id_from_url, fetch_data, fetch_data_by_id
 from utils.filters import apply_smart_filters
 
 
@@ -21,18 +21,20 @@ def get_starships_by_id(id: int):
 def list_starships_by_filters(request: StarshipsRequest = Depends()):
 
     starships_data = fetch_data("starships")
+    people_data = fetch_data("people")
+    films_data = fetch_data("films")
+
+    people_map = {p["url"]: p for p in people_data}
+    films_map = {f["url"]: f for f in films_data}
 
     filters = {}
 
     if request.name:
         filters["name"] = request.name
-
     if request.model:
         filters["model"] = request.model
-
     if request.manufacturer:
         filters["manufacturer"] = request.manufacturer
-
     if request.starship_class:
         filters["starship_class"] = request.starship_class
 
@@ -40,7 +42,6 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
         starships_data if not filters
         else apply_smart_filters(starships_data, filters)
     )
-    print(request.order_dir)
 
     if request.order_by == "url":
         result.sort(
@@ -52,8 +53,8 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
             key=lambda x: (x.get(request.order_by) or "").lower(),
             reverse=request.order_dir == "desc"
         )
-    total = len(result)
 
+    total = len(result)
     start = (request.page - 1) * request.page_size
     end = start + request.page_size
     paginated = result[start:end]
@@ -62,19 +63,19 @@ def list_starships_by_filters(request: StarshipsRequest = Depends()):
 
     for s in paginated:
 
-        # Pilots
         pilots = [
-            People(name=fetch_by_url(url)["name"])
+            People(name=people_map[url]["name"])
             for url in s.get("pilots", [])
+            if url in people_map
         ]
 
-        # Films
         films = [
             Films(
-                title=fetch_by_url(url)["title"],
-                director=fetch_by_url(url)["director"]
+                title=films_map[url]["title"],
+                director=films_map[url]["director"]
             )
             for url in s.get("films", [])
+            if url in films_map
         ]
 
         response.append(
